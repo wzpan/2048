@@ -11,7 +11,8 @@ cc.Class({
         score: 0,
         blockPrefab: cc.Prefab,
         gap: 20,
-        bg: cc.Node
+        bg: cc.Node,
+        gameOverNode: cc.Node
     },
 
     // LIFE-CYCLE CALLBACKS:
@@ -166,7 +167,7 @@ cc.Class({
     },
 
     gameOver() {
-        cc.log('game over!');
+        this.gameOverNode.active = true;
     },
 
     afterMove(hasMoved) {
@@ -181,9 +182,9 @@ cc.Class({
 
     /**
      * 移动格子
-     * @param {cc.Node} block 
-     * @param {cc.p} position 
-     * @param {func} callback 
+     * @param {cc.Node} block 待移动块
+     * @param {cc.p} position  块的位置
+     * @param {func} callback 移动完回调
      */
     doMove(block, position, callback) {
         let action = cc.moveTo(MOVE_DURATION, position);
@@ -191,6 +192,26 @@ cc.Class({
             callback && callback()
         });
         block.runAction(cc.sequence(action, finish));
+    },
+
+    /**
+     * 合并操作
+     * @param {cc.Node} b1 块1
+     * @param {cc.Node} b2 块2
+     * @param {int} num 新的数值
+     * @param {Func} callback 完成后回调
+     */
+    doMerge(b1, b2, num, callback) {
+        b1.destroy();  // 合并后销毁
+        let scale1 = cc.scaleTo(0.1, 1.1);
+        let scale2 = cc.scaleTo(0.1, 1);
+        let mid = cc.callFunc(()=>{
+            b2.getComponent('block').setNumber(num);
+        });
+        let finished = cc.callFunc(()=>{ 
+            callback && callback() 
+        });
+        b2.runAction(cc.sequence(scale1, mid, scale2, finished));
     },
 
     moveLeft() {
@@ -219,10 +240,10 @@ cc.Class({
                 this.data[x][y-1] *= 2;
                 this.data[x][y] = 0;
                 this.blocks[x][y] = null;
-                this.blocks[x][y-1].getComponent('block').setNumber(this.data[x][y-1]);
                 this.doMove(block, position, ()=>{
-                    block.destroy();
-                    callback && callback();
+                    this.doMerge(block, this.blocks[x][y-1], this.data[x][y-1], ()=>{
+                        callback && callback();
+                    });
                 });
                 hasMoved = true;
             } else {
@@ -277,10 +298,10 @@ cc.Class({
                 this.data[x][y+1] *= 2;
                 this.data[x][y] = 0;
                 this.blocks[x][y] = null;
-                this.blocks[x][y+1].getComponent('block').setNumber(this.data[x][y+1]);
                 this.doMove(block, position, ()=>{
-                    block.destroy();
-                    callback && callback();
+                    this.doMerge(block, this.blocks[x][y+1], this.data[x][y+1], ()=>{
+                        callback && callback();
+                    });
                 });
                 hasMoved = true;
             } else {
@@ -336,10 +357,10 @@ cc.Class({
                 this.data[x+1][y] *= 2;
                 this.data[x][y] = 0;
                 this.blocks[x][y] = null;
-                this.blocks[x+1][y].getComponent('block').setNumber(this.data[x+1][y]);
                 this.doMove(block, position, ()=>{
-                    block.destroy();
-                    callback && callback();
+                    this.doMerge(block, this.blocks[x+1][y], this.data[x+1][y], ()=>{
+                        callback && callback();
+                    });
                 });
                 hasMoved = true;
             } else {
@@ -354,7 +375,7 @@ cc.Class({
                 if (this.data[i][j] != 0) {
                     toMove.push({x: i, y: j});
                 }
-            }
+            } 
         }
 
         let counter = 0;
@@ -395,10 +416,10 @@ cc.Class({
                 this.data[x-1][y] *= 2;
                 this.data[x][y] = 0;
                 this.blocks[x][y] = null;
-                this.blocks[x-1][y].getComponent('block').setNumber(this.data[x-1][y]);
                 this.doMove(block, position, ()=>{
-                    block.destroy();
-                    callback && callback();
+                    this.doMerge(block, this.blocks[x-1][y], this.data[x-1][y], ()=>{
+                        callback && callback();
+                    });
                 });
                 hasMoved = true;
             } else {
@@ -425,5 +446,10 @@ cc.Class({
                 }
             });
         }        
+    },
+
+    restart() {
+        this.init();
+        this.gameOverNode.active = false;
     },
 });
